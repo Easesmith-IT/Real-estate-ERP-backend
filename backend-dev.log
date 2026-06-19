@@ -1,0 +1,5 @@
+◇ injected env (4) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+[INFO] MongoDB connected
+[INFO] ERP state hydrated from modular Mongo collections
+[INFO] Server running on port 5000 in development mode
+[INFO] Mongo status: connected
