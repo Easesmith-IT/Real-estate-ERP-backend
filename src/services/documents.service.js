@@ -1,23 +1,21 @@
 const { randomUUID } = require("crypto");
-const path = require("path");
 
 const { ErpDocument } = require("../models/erp/admin.model");
 const { createHttpError } = require("../utils/http");
 const { getPagination } = require("../utils/query");
-const { UPLOAD_DIR } = require("../utils/upload");
 
 /**
- * Resolve a public-style fileUrl from a multer file object.
- * Multer stores the file at `file.path` (absolute) or `file.filename` (relative to UPLOAD_DIR).
- * We normalise to a relative URL path: /uploads/<filename>
+ * Resolve a public-style fileUrl from a file upload record.
+ * For Vercel Blob uploads this should already be a stable URL or proxy path.
  *
- * @param {import("multer").File} file
+ * @param {{ filename?: string, path?: string, fileUrl?: string }} file
  * @returns {string}
  */
 function resolveFileUrl(file) {
   if (!file) throw createHttpError(400, "No file provided");
-  const filename = file.filename || path.basename(file.path);
-  return `/uploads/${filename}`;
+  if (file.fileUrl) return file.fileUrl;
+  if (file.filename) return `/uploads/${file.filename}`;
+  throw createHttpError(400, "File URL could not be resolved");
 }
 
 /**

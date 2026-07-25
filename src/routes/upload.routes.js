@@ -1,8 +1,6 @@
 const router = require("express").Router();
-const path = require("path");
-const fs = require("fs");
-const { randomUUID } = require("crypto");
 const { upload } = require("../utils/upload");
+const { uploadBufferedFile, findBlobByFilename } = require("../utils/blob");
 const { requirePermission } = require("../middlewares/auth.middleware");
 const { createDocumentRecord } = require("../services/erp.service");
 const { sendSuccess, createHttpError } = require("../utils/http");
@@ -14,6 +12,7 @@ router.post("/document", requirePermission("documents.write"), (req, res, next) 
     try {
       const file = req.file;
       if (!file) throw createHttpError(400, "File is required");
+      const { filename } = await uploadBufferedFile(file);
 
       const payload = {
         title: req.body.title || file.originalname,
@@ -25,7 +24,7 @@ router.post("/document", requirePermission("documents.write"), (req, res, next) 
         status: req.body.status || "Pending Review",
         ownerId: req.body.ownerId || req.user.id,
         expiryDate: req.body.expiryDate || null,
-        fileUrl: `${req.protocol}://${req.get("host")}/api/uploads/${file.filename}`,
+        fileUrl: `${req.protocol}://${req.get("host")}/api/uploads/${filename}`,
         fileSize: file.size,
         mimeType: file.mimetype,
         originalName: file.originalname,
@@ -39,12 +38,17 @@ router.post("/document", requirePermission("documents.write"), (req, res, next) 
   });
 });
 
-router.get("/:filename", (_req, res, next) => {
-  const filePath = path.resolve(process.cwd(), "uploads", _req.params.filename);
-  if (!fs.existsSync(filePath)) {
-    return next(createHttpError(404, "File not found"));
+router.get("/:filename", async (req, res, next) => {
+  try {
+    const blob = await findBlobByFilename(req.params.filename);
+    if (!blob) {
+      return next(createHttpError(404, "File not found"));
+    }
+
+    return res.redirect(307, blob.url);
+  } catch (error) {
+    return next(error);
   }
-  res.sendFile(filePath);
 });
 
 module.exports = router;

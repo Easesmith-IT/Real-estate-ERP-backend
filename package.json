@@ -14,11 +14,15 @@
   "author": "",
   "type": "commonjs",
   "main": "app.js",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "nodemon app.js",
     "start": "node app.js"
   },
   "dependencies": {
+    "@vercel/blob": "^2.6.1",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

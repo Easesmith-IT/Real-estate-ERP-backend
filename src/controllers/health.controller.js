@@ -2,10 +2,11 @@ const { getMongoStatus } = require("../connection/mongo.connection");
 
 const healthCheck = (req, res) => {
   const mongo = getMongoStatus();
+  const isHealthy = mongo.status === "connected";
 
-  res.status(200).json({
-    success: true,
-    message: "API is healthy",
+  res.status(isHealthy ? 200 : 503).json({
+    success: isHealthy,
+    message: isHealthy ? "API is healthy" : "API is degraded",
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     db: mongo,

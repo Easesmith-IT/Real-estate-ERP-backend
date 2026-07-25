@@ -1,20 +1,13 @@
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
 const { randomUUID } = require("crypto");
 
-const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const UPLOAD_PREFIX = "uploads";
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, UPLOAD_DIR);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || "";
-    cb(null, `${randomUUID()}${ext}`);
-  },
-});
+const createUploadFilename = (originalname = "") => {
+  const ext = path.extname(originalname) || "";
+  return `${randomUUID()}${ext}`;
+};
 
 const fileFilter = (_req, file, cb) => {
   const allowed = [
@@ -35,9 +28,9 @@ const fileFilter = (_req, file, cb) => {
 };
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter,
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-module.exports = { upload, UPLOAD_DIR };
+module.exports = { upload, UPLOAD_PREFIX, createUploadFilename };
