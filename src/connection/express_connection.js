@@ -4,9 +4,8 @@ const cors = require("cors");
 const { mountRouteGroups } = require("./routeRegistry");
 const { attachCurrentUser } = require("../middlewares/auth.middleware");
 const { notFoundHandler, errorHandler } = require("../middlewares/error.middleware");
-const { loadServerInstance } = require("../server");
 
-const bootstrapExpressConnection = async (options = {}) => {
+const createExpressApp = (options = {}) => {
   const app = express();
 
   app.use(cors());
@@ -27,9 +26,9 @@ const bootstrapExpressConnection = async (options = {}) => {
   app.use(notFoundHandler);
   app.use(errorHandler);
 
-  return loadServerInstance(app);
+  return app;
 };
 
 module.exports = {
-  bootstrapExpressConnection,
+  createExpressApp,
 };

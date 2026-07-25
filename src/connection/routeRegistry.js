@@ -1,47 +1,43 @@
 const routeDefinitions = [
-  { key: "health", mount: "/api/health", modulePath: "../routes/health.routes" },
-  { key: "auth", mount: "/api/auth", modulePath: "../routes/auth.routes" },
-  { key: "users", mount: "/api/users", modulePath: "../routes/users.routes" },
-  { key: "customers", mount: "/api/customers", modulePath: "../routes/customers.routes" },
-  { key: "properties", mount: "/api/properties", modulePath: "../routes/properties.routes" },
-  { key: "leads", mount: "/api/leads", modulePath: "../routes/leads.routes" },
-  { key: "bookings", mount: "/api/bookings", modulePath: "../routes/bookings.routes" },
-  { key: "payments", mount: "/api/payments", modulePath: "../routes/payments.routes" },
-  { key: "dashboard", mount: "/api/dashboard", modulePath: "../routes/dashboard.routes" },
-  { key: "reports", mount: "/api/reports", modulePath: "../routes/reports.routes" },
-  { key: "admin", mount: "/api/admin", modulePath: "../routes/admin.routes" },
-  { key: "projects", mount: "/api/projects", modulePath: "../routes/projects.routes" },
-  { key: "procurement", mount: "/api/procurement", modulePath: "../routes/procurement.routes" },
-  { key: "materials", mount: "/api/materials", modulePath: "../routes/materials.routes" },
-  { key: "workforce", mount: "/api/workforce", modulePath: "../routes/workforce.routes" },
-  { key: "notifications", mount: "/api/notifications", modulePath: "../routes/notifications.routes" },
-  { key: "ai", mount: "/api/ai", modulePath: "../routes/ai.routes" },
-  { key: "uploads", mount: "/api/uploads", modulePath: "../routes/upload.routes" },
-  { key: "reservations", mount: "/api/reservations", modulePath: "../routes/reservations.routes" },
-  { key: "finance", mount: "/api/finance", modulePath: "../routes/finance.routes" },
-  { key: "documents", mount: "/api/documents", modulePath: "../routes/documents.routes" },
-  { key: "compliance", mount: "/api/compliance", modulePath: "../routes/compliance.routes" },
-  { key: "facility", mount: "/api/facility", modulePath: "../routes/facility.routes" },
-  { key: "support", mount: "/api/support", modulePath: "../routes/support.routes" },
+  { key: "health", mount: "/api/health", load: () => require("../routes/health.routes") },
+  { key: "auth", mount: "/api/auth", load: () => require("../routes/auth.routes") },
+  { key: "users", mount: "/api/users", load: () => require("../routes/users.routes") },
+  { key: "customers", mount: "/api/customers", load: () => require("../routes/customers.routes") },
+  { key: "properties", mount: "/api/properties", load: () => require("../routes/properties.routes") },
+  { key: "leads", mount: "/api/leads", load: () => require("../routes/leads.routes") },
+  { key: "bookings", mount: "/api/bookings", load: () => require("../routes/bookings.routes") },
+  { key: "payments", mount: "/api/payments", load: () => require("../routes/payments.routes") },
+  { key: "dashboard", mount: "/api/dashboard", load: () => require("../routes/dashboard.routes") },
+  { key: "reports", mount: "/api/reports", load: () => require("../routes/reports.routes") },
+  { key: "admin", mount: "/api/admin", load: () => require("../routes/admin.routes") },
+  { key: "projects", mount: "/api/projects", load: () => require("../routes/projects.routes") },
+  { key: "procurement", mount: "/api/procurement", load: () => require("../routes/procurement.routes") },
+  { key: "materials", mount: "/api/materials", load: () => require("../routes/materials.routes") },
+  { key: "workforce", mount: "/api/workforce", load: () => require("../routes/workforce.routes") },
+  { key: "notifications", mount: "/api/notifications", load: () => require("../routes/notifications.routes") },
+  { key: "ai", mount: "/api/ai", load: () => require("../routes/ai.routes") },
+  { key: "uploads", mount: "/api/uploads", load: () => require("../routes/upload.routes") },
+  { key: "reservations", mount: "/api/reservations", load: () => require("../routes/reservations.routes") },
+  { key: "finance", mount: "/api/finance", load: () => require("../routes/finance.routes") },
+  { key: "documents", mount: "/api/documents", load: () => require("../routes/documents.routes") },
+  { key: "compliance", mount: "/api/compliance", load: () => require("../routes/compliance.routes") },
+  { key: "facility", mount: "/api/facility", load: () => require("../routes/facility.routes") },
+  { key: "support", mount: "/api/support", load: () => require("../routes/support.routes") },
 ];
 
 const loadRouteModule = (route) => {
-  let resolvedModulePath;
-
   try {
-    resolvedModulePath = require.resolve(route.modulePath);
+    return route.load();
   } catch (error) {
     if (error.code === "MODULE_NOT_FOUND") {
       console.warn(
-        `[routeRegistry] Skipping route group "${route.key}" because module "${route.modulePath}" was not found.`,
+        `[routeRegistry] Skipping route group "${route.key}" because its route module could not be loaded.`,
       );
       return null;
     }
 
     throw error;
   }
-
-  return require(resolvedModulePath);
 };
 
 const resolveSelectedRouteKeys = (routeGroups) => {
