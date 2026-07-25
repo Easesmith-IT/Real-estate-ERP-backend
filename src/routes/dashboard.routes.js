@@ -4,11 +4,16 @@ const { requirePermission } = require("../middlewares/auth.middleware");
 const {
   getDashboardActivityFeed,
   getDashboardAnalytics,
+  getDashboardComposite,
   getDashboardOverview,
   getDashboardProjectHealth,
   getDashboardRecommendations,
 } = require("../services/dashboard.service");
 const { sendSuccess } = require("../utils/http");
+
+router.get("/composite", requirePermission("reports.read"), (req, res) =>
+  sendSuccess(res, getDashboardComposite(), "Dashboard composite loaded"),
+);
 
 router.get("/overview", requirePermission("reports.read"), (req, res) =>
   sendSuccess(res, getDashboardOverview(), "Dashboard overview loaded"),

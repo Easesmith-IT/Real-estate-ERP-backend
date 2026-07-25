@@ -16,8 +16,11 @@ const {
   listReceipts,
   listVendors,
 } = require("./erp.service");
+const { remember } = require("../utils/cache");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DASHBOARD_CONTEXT_CACHE_TTL_MS = 15 * 1000;
+const DASHBOARD_PAYLOAD_CACHE_TTL_MS = 30 * 1000;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -119,7 +122,7 @@ const buildMonthMetricMap = (months, items, dateAccessor, valueAccessor) => {
   }));
 };
 
-const buildCommandCenterContext = () => {
+const buildCommandCenterContextUncached = () => {
   const projects = listProjects().projects;
   const leads = listLeads({ page: 1, limit: 1000 }).items;
   const employees = listEmployees().employees;
@@ -156,6 +159,9 @@ const buildCommandCenterContext = () => {
     vendors,
   };
 };
+
+const getDashboardContext = () =>
+  remember("dashboard:context", DASHBOARD_CONTEXT_CACHE_TTL_MS, buildCommandCenterContextUncached);
 
 const buildRevenueCollectionTrend = (context) => {
   const months = buildTrailingMonths(12);
@@ -444,8 +450,7 @@ const buildActionCenter = (context) => ({
   ],
 });
 
-const getDashboardOverview = () => {
-  const context = buildCommandCenterContext();
+const buildDashboardOverviewPayload = (context) => {
   const revenueTrend = buildRevenueCollectionTrend(context);
   const collectionsAging = buildCollectionsAging(context);
   const projectHealthCards = buildProjectHealthCards(context);
@@ -670,8 +675,7 @@ const getDashboardOverview = () => {
   };
 };
 
-const getDashboardProjectHealth = () => {
-  const context = buildCommandCenterContext();
+const buildDashboardProjectHealthPayload = (context) => {
   const projects = buildProjectHealthCards(context).sort(
     (left, right) => right.riskScore - left.riskScore,
   );
@@ -687,9 +691,7 @@ const getDashboardProjectHealth = () => {
   };
 };
 
-const getDashboardAnalytics = () => {
-  const context = buildCommandCenterContext();
-  const overview = getDashboardOverview();
+const buildDashboardAnalyticsPayload = (context, overview) => {
   const months = buildTrailingMonths(6);
   const leadTrendMap = new Map(months.map((month) => [month.key, 0]));
 
@@ -739,8 +741,7 @@ const getDashboardAnalytics = () => {
   };
 };
 
-const getDashboardRecommendations = () => {
-  const context = buildCommandCenterContext();
+const buildDashboardRecommendationsPayload = (context) => {
   const items = buildRecommendationItems(context);
 
   return {
@@ -752,9 +753,7 @@ const getDashboardRecommendations = () => {
   };
 };
 
-const getDashboardActivityFeed = () => {
-  const context = buildCommandCenterContext();
-
+const buildDashboardActivityFeedPayload = (context) => {
   const items = [
     ...context.attendance.attendance.slice(0, 8).map((entry) => ({
       id: `activity-${entry.id}`,
@@ -828,9 +827,47 @@ const getDashboardActivityFeed = () => {
   };
 };
 
+const getDashboardOverview = () =>
+  remember("dashboard:overview", DASHBOARD_PAYLOAD_CACHE_TTL_MS, () =>
+    buildDashboardOverviewPayload(getDashboardContext()),
+  );
+
+const getDashboardProjectHealth = () =>
+  remember("dashboard:project-health", DASHBOARD_PAYLOAD_CACHE_TTL_MS, () =>
+    buildDashboardProjectHealthPayload(getDashboardContext()),
+  );
+
+const getDashboardAnalytics = () =>
+  remember("dashboard:analytics", DASHBOARD_PAYLOAD_CACHE_TTL_MS, () => {
+    const context = getDashboardContext();
+    const overview = buildDashboardOverviewPayload(context);
+    return buildDashboardAnalyticsPayload(context, overview);
+  });
+
+const getDashboardRecommendations = () =>
+  remember("dashboard:recommendations", DASHBOARD_PAYLOAD_CACHE_TTL_MS, () =>
+    buildDashboardRecommendationsPayload(getDashboardContext()),
+  );
+
+const getDashboardActivityFeed = () =>
+  remember("dashboard:activity-feed", DASHBOARD_PAYLOAD_CACHE_TTL_MS, () =>
+    buildDashboardActivityFeedPayload(getDashboardContext()),
+  );
+
+const getDashboardComposite = () =>
+  remember("dashboard:composite", DASHBOARD_PAYLOAD_CACHE_TTL_MS, () => {
+    const context = getDashboardContext();
+    return {
+      generatedAt: new Date().toISOString(),
+      overview: buildDashboardOverviewPayload(context),
+      projectHealth: buildDashboardProjectHealthPayload(context),
+    };
+  });
+
 module.exports = {
   getDashboardActivityFeed,
   getDashboardAnalytics,
+  getDashboardComposite,
   getDashboardOverview,
   getDashboardProjectHealth,
   getDashboardRecommendations,

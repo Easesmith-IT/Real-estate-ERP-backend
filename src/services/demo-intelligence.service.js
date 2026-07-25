@@ -13,6 +13,10 @@ const {
   listPurchaseOrders,
   listPurchaseRequests,
 } = require("./erp.service");
+const { remember } = require("../utils/cache");
+
+const ASSISTANT_CONTEXT_CACHE_TTL_MS = 15 * 1000;
+const ASSISTANT_PAYLOAD_CACHE_TTL_MS = 30 * 1000;
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat("en-IN", {
@@ -134,7 +138,7 @@ const getRiskTasks = () =>
       dueDate: item.dueAt || new Date().toISOString(),
     }));
 
-const buildSharedContext = () => {
+const buildSharedContextUncached = () => {
   const dashboard = getDashboardSummary();
   const executive = getExecutiveDashboard();
   const alerts = getApprovalAlerts();
@@ -174,6 +178,9 @@ const buildSharedContext = () => {
     tasks,
   };
 };
+
+const getSharedContext = () =>
+  remember("assistant:context", ASSISTANT_CONTEXT_CACHE_TTL_MS, buildSharedContextUncached);
 
 const buildRecommendations = (context) => {
   const recommendations = [];
@@ -237,46 +244,48 @@ const buildRecommendations = (context) => {
 };
 
 const getAssistantOverview = () => {
-  const context = buildSharedContext();
+  return remember("assistant:overview", ASSISTANT_PAYLOAD_CACHE_TTL_MS, () => {
+    const context = getSharedContext();
 
-  return {
-    mode: "demo-simulation",
-    headline: `${context.projects.length} active projects, ${context.alerts.summary.critical} critical alerts, ${context.projectRisk.summary.totalSignals} rule-based risk triggers`,
-    summary: `This demo assistant is simulation-based, but it is reading live ERP demo state across projects, inventory, approvals, collections, and workforce activity.`,
-    signals: [
-      {
-        label: "Portfolio value",
-        value: formatCurrency(context.executive.executiveKpis.portfolioValue),
-        tone: "success",
-        detail: "Current executive inventory baseline across active projects.",
-      },
-      {
-        label: "Pending approvals",
-        value: `${context.executive.executiveKpis.approvalQueue}`,
-        tone: context.executive.executiveKpis.approvalQueue > 0 ? "warning" : "success",
-        detail: "Commercial and finance queue items that can block downstream execution.",
-      },
-      {
-        label: "Low stock materials",
-        value: `${context.lowStockMaterials.length}`,
-        tone: context.lowStockMaterials.length > 0 ? "warning" : "success",
-        detail: "Inventory items already at or below reorder levels.",
-      },
-      {
-        label: "Today's attendance visibility",
-        value: `${context.attendance.summary.present} present`,
-        tone: "info",
-        detail: `${context.employees.length} tracked employees in workforce register.`,
-      },
-    ],
-    recommendations: buildRecommendations(context),
-    suggestedCommands: assistantCommands,
-    generatedAt: new Date().toISOString(),
-  };
+    return {
+      mode: "demo-simulation",
+      headline: `${context.projects.length} active projects, ${context.alerts.summary.critical} critical alerts, ${context.projectRisk.summary.totalSignals} rule-based risk triggers`,
+      summary: `This demo assistant is simulation-based, but it is reading live ERP demo state across projects, inventory, approvals, collections, and workforce activity.`,
+      signals: [
+        {
+          label: "Portfolio value",
+          value: formatCurrency(context.executive.executiveKpis.portfolioValue),
+          tone: "success",
+          detail: "Current executive inventory baseline across active projects.",
+        },
+        {
+          label: "Pending approvals",
+          value: `${context.executive.executiveKpis.approvalQueue}`,
+          tone: context.executive.executiveKpis.approvalQueue > 0 ? "warning" : "success",
+          detail: "Commercial and finance queue items that can block downstream execution.",
+        },
+        {
+          label: "Low stock materials",
+          value: `${context.lowStockMaterials.length}`,
+          tone: context.lowStockMaterials.length > 0 ? "warning" : "success",
+          detail: "Inventory items already at or below reorder levels.",
+        },
+        {
+          label: "Today's attendance visibility",
+          value: `${context.attendance.summary.present} present`,
+          tone: "info",
+          detail: `${context.employees.length} tracked employees in workforce register.`,
+        },
+      ],
+      recommendations: buildRecommendations(context),
+      suggestedCommands: assistantCommands,
+      generatedAt: new Date().toISOString(),
+    };
+  });
 };
 
 const buildCommandResponse = (command, payload = {}) => {
-  const context = buildSharedContext();
+  const context = getSharedContext();
 
   switch (command.id) {
     case "stock-alerts":
@@ -415,65 +424,67 @@ const buildCommandResponse = (command, payload = {}) => {
 };
 
 const getNotificationsFeed = () => {
-  const dashboard = getDashboardSummary();
-  const alerts = getApprovalAlerts();
+  return remember("assistant:notifications", ASSISTANT_PAYLOAD_CACHE_TTL_MS, () => {
+    const dashboard = getDashboardSummary();
+    const alerts = getApprovalAlerts();
 
-  const alertItems = alerts.alerts.slice(0, 8).map((item) => ({
-    id: `notification-${item.id}`,
-    title: item.title,
-    message: item.message,
-    category: item.category,
-    severity: item.severity,
-    source: item.source,
-    status: "Unread",
-    read: false,
-    createdAt: item.dueAt,
-    dueAt: item.dueAt,
-    actionLabel: "Open queue",
-    actionRoute:
-      item.category === "Collections"
-        ? frontendRoutes.collections
-        : frontendRoutes.projectHealth,
-  }));
+    const alertItems = alerts.alerts.slice(0, 8).map((item) => ({
+      id: `notification-${item.id}`,
+      title: item.title,
+      message: item.message,
+      category: item.category,
+      severity: item.severity,
+      source: item.source,
+      status: "Unread",
+      read: false,
+      createdAt: item.dueAt,
+      dueAt: item.dueAt,
+      actionLabel: "Open queue",
+      actionRoute:
+        item.category === "Collections"
+          ? frontendRoutes.collections
+          : frontendRoutes.projectHealth,
+    }));
 
-  const activityItems = dashboard.recentActivity.slice(0, 6).map((item) => ({
-    id: `notification-activity-${item.id}`,
-    title: item.title,
-    message: item.detail,
-    category: item.category,
-    severity: "Info",
-    source: item.actorName,
-    status: "Unread",
-    read: false,
-    createdAt: item.createdAt,
-    dueAt: null,
-    actionLabel: "Open dashboard",
-    actionRoute: frontendRoutes.dashboard,
-  }));
+    const activityItems = dashboard.recentActivity.slice(0, 6).map((item) => ({
+      id: `notification-activity-${item.id}`,
+      title: item.title,
+      message: item.detail,
+      category: item.category,
+      severity: "Info",
+      source: item.actorName,
+      status: "Unread",
+      read: false,
+      createdAt: item.createdAt,
+      dueAt: null,
+      actionLabel: "Open dashboard",
+      actionRoute: frontendRoutes.dashboard,
+    }));
 
-  const notifications = [...alertItems, ...activityItems].sort(
-    (left, right) =>
-      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
-  );
+    const notifications = [...alertItems, ...activityItems].sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
 
-  return {
-    notifications,
-    summary: {
-      total: notifications.length,
-      unread: notifications.filter((item) => !item.read).length,
-      critical: notifications.filter((item) => item.severity === "Critical")
-        .length,
-      high: notifications.filter((item) => item.severity === "High").length,
-      info: notifications.filter((item) => item.severity === "Info").length,
-    },
-    severityTones: {
-      Critical: toneForSeverity("Critical"),
-      High: toneForSeverity("High"),
-      Medium: toneForSeverity("Medium"),
-      Info: toneForSeverity("Info"),
-    },
-    generatedAt: new Date().toISOString(),
-  };
+    return {
+      notifications,
+      summary: {
+        total: notifications.length,
+        unread: notifications.filter((item) => !item.read).length,
+        critical: notifications.filter((item) => item.severity === "Critical")
+          .length,
+        high: notifications.filter((item) => item.severity === "High").length,
+        info: notifications.filter((item) => item.severity === "Info").length,
+      },
+      severityTones: {
+        Critical: toneForSeverity("Critical"),
+        High: toneForSeverity("High"),
+        Medium: toneForSeverity("Medium"),
+        Info: toneForSeverity("Info"),
+      },
+      generatedAt: new Date().toISOString(),
+    };
+  });
 };
 
 const runAssistantCommand = (payload = {}) => {

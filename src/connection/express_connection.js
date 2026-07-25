@@ -4,6 +4,7 @@ const cors = require("cors");
 const { mountRouteGroups } = require("./routeRegistry");
 const { attachCurrentUser } = require("../middlewares/auth.middleware");
 const { notFoundHandler, errorHandler } = require("../middlewares/error.middleware");
+const { attachRequestTiming } = require("../middlewares/request-timing.middleware");
 
 const allowedOrigins = new Set([
   "http://localhost:3000",
@@ -30,6 +31,7 @@ const createExpressApp = (options = {}) => {
   app.use(cors(corsOptions));
   app.options(/.*/, cors(corsOptions));
   app.use(express.json());
+  app.use(attachRequestTiming);
   app.use(attachCurrentUser);
 
   app.get("/", (req, res) => {
