@@ -5,15 +5,11 @@ const { mountRouteGroups } = require("./routeRegistry");
 const { attachCurrentUser } = require("../middlewares/auth.middleware");
 const { notFoundHandler, errorHandler } = require("../middlewares/error.middleware");
 const { attachRequestTiming } = require("../middlewares/request-timing.middleware");
-
-const allowedOrigins = new Set([
-  "http://localhost:3000",
-  "https://nimbusos.easesmith.com",
-]);
+const { isAllowedOrigin } = require("../utils/cors");
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin)) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
 
